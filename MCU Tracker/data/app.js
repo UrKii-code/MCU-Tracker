@@ -2,82 +2,350 @@
 // MCU TRACKER - APPLICATION ENGINE
 // ========================================
 
-// ===== Load watched items from browser localStorage ===== //
-let watchedMovies = JSON.parse(localStorage.getItem("mcuWatchedList")) || [];
+const WATCHED_STORAGE_KEY = "mcuWatchedList";
+const ACHIEVEMENT_STORAGE_KEY = "mcu_unlocked_achievements";
+const FALLBACK_POSTER = "images/logos/mcu-logo.png";
 
-// Global reference for timeline rendering so modal and outer functions can access it
+// ===== Safe LocalStorage Load & Legacy Migration ===== //
+function loadWatchedList() {
+    let rawList = [];
+    try {
+        const stored = localStorage.getItem(WATCHED_STORAGE_KEY);
+        if (stored) {
+            const parsed = JSON.parse(stored);
+            if (Array.isArray(parsed)) {
+                rawList = parsed.filter(item => typeof item === "string" && item.trim() !== "");
+            }
+        }
+    } catch (err) {
+        console.warn("Corrupted watched list in localStorage ignored:", err);
+        return [];
+    }
+
+    if (typeof mcuTimeline === "undefined" || !Array.isArray(mcuTimeline) || mcuTimeline.length === 0) {
+        return [...new Set(rawList.map(s => s.trim()))];
+    }
+
+    const keyMap = new Map();
+    const titleGroups = new Map();
+
+    mcuTimeline.forEach(movie => {
+        const key = getProjectKey(movie);
+        if (key) keyMap.set(key.toLowerCase().trim(), key);
+
+        const baseTitle = (movie.title || "").toLowerCase().trim();
+        if (baseTitle) {
+            if (!titleGroups.has(baseTitle)) titleGroups.set(baseTitle, []);
+            titleGroups.get(baseTitle).push(key);
+        }
+    });
+
+    let migrated = false;
+    const result = [];
+
+    rawList.forEach(entry => {
+        const trimmed = entry.trim();
+        const lower = trimmed.toLowerCase();
+
+        if (keyMap.has(lower)) {
+            const canonical = keyMap.get(lower);
+            if (canonical !== trimmed) migrated = true;
+            result.push(canonical);
+        } else if (titleGroups.has(lower)) {
+            // Legacy bare title for a multi-season series: expand non-destructively to all its seasons
+            titleGroups.get(lower).forEach(seasonKey => result.push(seasonKey));
+            migrated = true;
+        } else {
+            result.push(trimmed);
+        }
+    });
+
+    const deduped = [...new Set(result)];
+    if (migrated) {
+        saveWatchedList(deduped);
+    }
+    return deduped;
+}
+
+function saveWatchedList(list) {
+    try {
+        localStorage.setItem(WATCHED_STORAGE_KEY, JSON.stringify([...new Set(list)]));
+    } catch (err) {
+        console.warn("Failed to save watched list to localStorage:", err);
+    }
+}
+
+let watchedMovies = loadWatchedList();
+let activePhaseFilter = "all";
 let renderTimeline;
+let applyFiltersAndRender;
 
+// ===== Timeline Filter & Matching Helpers ===== //
+function matchesCategoryFilter(movie, filterValue) {
+    if (!movie) return false;
+    const normalizedFilter = (filterValue || "all").toLowerCase().trim();
+    if (normalizedFilter === "all") return true;
+
+    const type = (movie.type || "").toLowerCase().trim();
+    if (normalizedFilter === "movie") return type === "movie";
+    if (normalizedFilter === "series") return type === "series";
+    if (normalizedFilter === "oneshot" || normalizedFilter === "one-shot") {
+        return type === "one-shot" || type === "oneshot" || type === "special";
+    }
+    if (normalizedFilter === "animation") {
+        return typeof isAnimatedProject === "function" ? isAnimatedProject(movie) : false;
+    }
+    return type === normalizedFilter;
+}
+
+function matchesPhaseFilter(movie, phaseKey) {
+    if (!movie || !phaseKey || phaseKey === "all") return true;
+    const section = (movie.timelineSection || "").toLowerCase();
+    const saga = (movie.saga || "").toLowerCase();
+
+    switch (phaseKey) {
+        case "infinity-saga":
+            return saga === "infinity saga" && section !== "documentary / recap";
+        case "phase-one":
+            return section === "wwii" || section === "1995" || section === "phase one";
+        case "phase-two":
+            return section === "phase two";
+        case "phase-three":
+            return section === "phase three";
+        case "multiverse-saga":
+            return saga === "the multiverse saga" && section !== "documentary / recap";
+        case "phase-four":
+            return saga === "the multiverse saga" && (section === "tva / outside time" || (movie.releaseYear >= 2021 && movie.releaseYear <= 2022));
+        case "phase-five":
+            return saga === "the multiverse saga" && movie.releaseYear >= 2023 && movie.releaseYear <= 2025 && (movie.timelineOrder || 0) < 90;
+        case "phase-six":
+            return saga === "the multiverse saga" && (movie.releaseYear >= 2025 && (movie.timelineOrder || 0) >= 90);
+        case "multiverse-collection":
+            return ["documentary / recap", "spider-man universe", "x-men universe", "animation / wakanda history", "animation / multiverse"].includes(section);
+        default:
+            return true;
+    }
+}
+
+function matchesSearchTerm(movie, searchTerm) {
+    if (!searchTerm) return true;
+    const q = searchTerm.toLowerCase().trim();
+    if (!q) return true;
+
+    const haystacks = [
+        movie.title,
+        movie.director,
+        movie.saga,
+        movie.timelineSection,
+        movie.type,
+        movie.timelineYear,
+        movie.releaseYear != null ? String(movie.releaseYear) : "",
+        movie.season != null ? `season ${movie.season}` : "",
+        ...(Array.isArray(movie.characters) ? movie.characters : [])
+    ];
+
+    return haystacks.some(field => typeof field === "string" && field.toLowerCase().includes(q));
+}
+
+// ===== DOM Initialization ===== //
 document.addEventListener("DOMContentLoaded", () => {
     const timelineContainer = document.getElementById("mcu-timeline");
     const searchInput = document.getElementById("searchInput");
-    const filterButtons = document.querySelectorAll(".filter");
+    const filterButtons = document.querySelectorAll(".filter-section .filter");
+    const navToggle = document.getElementById("navToggle");
+    const mainNav = document.getElementById("mainNav");
+    const phaseNodes = document.querySelectorAll(".mcu-simple-timeline .timeline-item[data-phase]");
+    const clearPhaseBtn = document.getElementById("clearPhaseFilter");
 
-    // Check that timeline container exists
     if (!timelineContainer) {
         console.error("MCU timeline container not found.");
         return;
     }
 
-    if (typeof mcuTimeline === "undefined" || mcuTimeline.length === 0) {
-        console.error("No MCU timeline data found.");
+    if (typeof mcuTimeline === "undefined" || !Array.isArray(mcuTimeline) || mcuTimeline.length === 0) {
+        timelineContainer.innerHTML = `<p class="empty-state">Unable to load MCU timeline data.</p>`;
         return;
     }
 
-    // Core Render Function assigned to global scope variable
+    // Mobile Navigation Toggle
+    if (navToggle && mainNav) {
+        navToggle.addEventListener("click", () => {
+            const isOpen = mainNav.classList.toggle("open");
+            navToggle.setAttribute("aria-expanded", String(isOpen));
+        });
+
+        mainNav.querySelectorAll("a").forEach(link => {
+            link.addEventListener("click", () => {
+                mainNav.classList.remove("open");
+                navToggle.setAttribute("aria-expanded", "false");
+            });
+        });
+    }
+
+    // Core Render Function
     renderTimeline = function(dataToRender) {
         timelineContainer.innerHTML = "";
 
         if (!dataToRender || dataToRender.length === 0) {
-            timelineContainer.innerHTML = `<p style="text-align: center; color: #b0b0b0; grid-column: 1 / -1; padding: 40px;">No matching movies or series found.</p>`;
+            timelineContainer.innerHTML = `
+                <div class="empty-state">
+                    <i class="fa-solid fa-film"></i>
+                    <p>No matching movies, series, or characters found.</p>
+                </div>
+            `;
             return;
         }
+
+        const fragment = document.createDocumentFragment();
 
         dataToRender.forEach(movie => {
             const card = document.createElement("div");
             card.classList.add("movie-card");
+            card.setAttribute("tabindex", "0");
+            card.setAttribute("role", "button");
+            card.setAttribute("aria-label", `View details for ${getProjectKey(movie)}`);
 
-            // Check if this movie is already marked as watched using movie.title
-            const isWatched = watchedMovies.includes(movie.title);
+            const projectKey = getProjectKey(movie);
+            const isWatched = isProjectWatched(movie, watchedMovies);
+            const safeTitle = escapeHtml(movie.title);
+            const safePoster = escapeHtml(sanitizeUrl(movie.poster, true) || FALLBACK_POSTER);
+            const safeYear = escapeHtml(movie.releaseYear || movie.timelineYear || "");
+            const safeType = escapeHtml(movie.type || "");
+            const safeRating = escapeHtml(movie.userRating || "");
 
             card.innerHTML = `
                 <div class="movie-poster">
-                    <img src="${movie.poster}" alt="${movie.title}" loading="lazy">
+                    <img src="${safePoster}" alt="${safeTitle}" loading="lazy" onerror="this.onerror=null; this.src='${FALLBACK_POSTER}';">
+                    ${isWatched ? '<span class="watched-corner-badge" title="Watched"><i class="fa-solid fa-check"></i></span>' : ""}
                 </div>
                 <div class="movie-info">
                     <div>
-                        <h3>${movie.title}</h3>
-                        <p>${movie.releaseYear || movie.timelineYear || ""}</p>
-                        ${movie.season ? `<p style="font-size: 12px; font-weight: bold; text-transform: uppercase; color: #94a3b8; margin: 3px 0;">Season ${movie.season}</p>` : ''}
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px;">
-                            <span>${movie.type || ""}</span>
-                            ${movie.userRating ? `<span style="font-size: 12px; color: #fbbf24; display: flex; align-items: center; gap: 4px;"><i class="fa-solid fa-star"></i> ${movie.userRating}</span>` : ''}
+                        <h3>${safeTitle}</h3>
+                        <p>${safeYear}</p>
+                        ${movie.season ? `<p class="card-season">Season ${escapeHtml(movie.season)}</p>` : ""}
+                        <div class="card-meta-row">
+                            <span class="type-pill">${safeType}</span>
+                            ${safeRating ? `<span class="rating-pill"><i class="fa-solid fa-star"></i> ${safeRating}</span>` : ""}
                         </div>
                     </div>
-                    <button class="watch-btn ${isWatched ? 'watched' : ''}" data-title="${movie.title}">
-                        <i class="fa-solid ${isWatched ? 'fa-check-circle' : 'fa-circle'}"></i> 
-                        ${isWatched ? 'Watched' : 'Mark Watched'}
+                    <button type="button" class="watch-btn ${isWatched ? "watched" : ""}" data-key="${escapeHtml(projectKey)}">
+                        <i class="fa-solid ${isWatched ? "fa-check-circle" : "fa-circle"}"></i>
+                        ${isWatched ? "Watched" : "Mark Watched"}
                     </button>
                 </div>
             `;
 
-            // Open popup modal when clicking the movie card (prevent opening when clicking watch button)
             card.addEventListener("click", (e) => {
                 if (!e.target.closest(".watch-btn")) {
                     openMovieModal(movie);
                 }
             });
 
-            // Watch button click handler
+            card.addEventListener("keydown", (e) => {
+                if ((e.key === "Enter" || e.key === " ") && !e.target.closest(".watch-btn")) {
+                    e.preventDefault();
+                    openMovieModal(movie);
+                }
+            });
+
             const watchBtn = card.querySelector(".watch-btn");
             watchBtn.addEventListener("click", (e) => {
                 e.stopPropagation();
-                toggleWatchStatus(movie.title, watchBtn);
+                toggleWatchStatus(projectKey);
             });
 
-            timelineContainer.appendChild(card);
+            fragment.appendChild(card);
         });
+
+        timelineContainer.appendChild(fragment);
     };
+
+    // Combined Filter, Phase & Search Logic
+    function filterAndSearchMovies() {
+        const activeFilterBtn = document.querySelector(".filter-section .filter.active");
+        const filterValue = activeFilterBtn ? activeFilterBtn.getAttribute("data-filter") : "all";
+        const searchTerm = searchInput ? searchInput.value : "";
+
+        const result = mcuTimeline.filter(movie =>
+            matchesCategoryFilter(movie, filterValue) &&
+            matchesPhaseFilter(movie, activePhaseFilter) &&
+            matchesSearchTerm(movie, searchTerm)
+        );
+
+        updateActivePhaseBanner();
+        renderTimeline(result);
+    }
+
+    applyFiltersAndRender = filterAndSearchMovies;
+
+    function updateActivePhaseBanner() {
+        const banner = document.getElementById("activePhaseBanner");
+        const label = document.getElementById("activePhaseLabel");
+        if (!banner || !label) return;
+
+        if (!activePhaseFilter || activePhaseFilter === "all") {
+            banner.style.display = "none";
+            return;
+        }
+
+        const activeNode = document.querySelector(`.mcu-simple-timeline .timeline-item[data-phase="${activePhaseFilter}"]`);
+        const phaseText = activeNode ? (activeNode.getAttribute("data-label") || activePhaseFilter) : activePhaseFilter;
+        label.textContent = `Timeline Filter: ${phaseText}`;
+        banner.style.display = "flex";
+    }
+
+    // Timeline Node Click Handlers
+    phaseNodes.forEach(node => {
+        const handleActivate = () => {
+            const phase = node.getAttribute("data-phase");
+            if (activePhaseFilter === phase) {
+                activePhaseFilter = "all";
+                phaseNodes.forEach(n => n.classList.remove("selected"));
+            } else {
+                activePhaseFilter = phase;
+                phaseNodes.forEach(n => n.classList.remove("selected"));
+                node.classList.add("selected");
+            }
+            filterAndSearchMovies();
+
+            const timelineSection = document.getElementById("timeline");
+            if (timelineSection && activePhaseFilter !== "all") {
+                timelineSection.scrollIntoView({ behavior: "smooth" });
+            }
+        };
+
+        node.addEventListener("click", handleActivate);
+        node.addEventListener("keydown", (e) => {
+            if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                handleActivate();
+            }
+        });
+    });
+
+    if (clearPhaseBtn) {
+        clearPhaseBtn.addEventListener("click", () => {
+            activePhaseFilter = "all";
+            phaseNodes.forEach(n => n.classList.remove("selected"));
+            filterAndSearchMovies();
+        });
+    }
+
+    // Category Filter Buttons
+    filterButtons.forEach(button => {
+        button.addEventListener("click", () => {
+            filterButtons.forEach(btn => btn.classList.remove("active"));
+            button.classList.add("active");
+            filterAndSearchMovies();
+        });
+    });
+
+    // Search Input Listener
+    if (searchInput) {
+        searchInput.addEventListener("input", () => {
+            filterAndSearchMovies();
+        });
+    }
 
     // Hero Button Handlers
     const continueBtn = document.getElementById("continueBtn");
@@ -85,66 +353,29 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (continueBtn) {
         continueBtn.addEventListener("click", () => {
-            const nextProject = mcuTimeline.find(movie => !watchedMovies.includes(movie.title));
+            const nextProject = mcuTimeline.find(movie => !isProjectWatched(movie, watchedMovies));
             if (nextProject) {
                 openMovieModal(nextProject);
             } else {
-                alert("You have completed all MCU projects! Amazing job!");
+                showStatusDialog(
+                    "Timeline Complete",
+                    "You have watched every title in the MCU Tracker timeline. Incredible work!"
+                );
             }
         });
     }
 
     if (timelineBtn) {
         timelineBtn.addEventListener("click", () => {
-            const statsSection = document.getElementById("statistics") || document.querySelector(".progress-wrapper") || document.querySelector(".stats-section");
-            if (statsSection) {
-                statsSection.scrollIntoView({ behavior: "smooth" });
-            } else {
-                window.location.hash = "#statistics";
+            const target = document.getElementById("timeline") || document.getElementById("statistics");
+            if (target) {
+                target.scrollIntoView({ behavior: "smooth" });
             }
         });
     }
 
-    // Combined Filter & Search Logic
-    function filterAndSearchMovies() {
-        const activeFilterBtn = document.querySelector(".filter.active");
-        const filterValue = activeFilterBtn ? activeFilterBtn.getAttribute("data-filter") : "all";
-        const searchTerm = searchInput ? searchInput.value.toLowerCase().trim() : "";
-
-        let result = mcuTimeline;
-        if (filterValue !== "all") {
-            result = result.filter(movie => 
-                movie.type && movie.type.toLowerCase() === filterValue.toLowerCase()
-            );
-        }
-
-        if (searchTerm !== "") {
-            result = result.filter(movie => 
-                movie.title && movie.title.toLowerCase().includes(searchTerm)
-            );
-        }
-
-        renderTimeline(result);
-    }
-
-    // Attach Event Listeners to Filter Buttons
-    filterButtons.forEach(button => {
-        button.addEventListener("click", (e) => {
-            filterButtons.forEach(btn => btn.classList.remove("active"));
-            e.target.classList.add("active");
-            filterAndSearchMovies();
-        });
-    });
-
-    // Attach Event Listener to Search Input
-    if (searchInput) {
-        searchInput.addEventListener("input", () => {
-            filterAndSearchMovies();
-        });
-    }
-
     // Initial load calls
-    renderTimeline(mcuTimeline);
+    filterAndSearchMovies();
     updateDashboard();
     updateStatistics();
     renderComingSoon();
@@ -154,52 +385,43 @@ document.addEventListener("DOMContentLoaded", () => {
 
 // ===== Progress Dashboard & Statistics ===== //
 function updateDashboard() {
-    const totalProjects = Array.isArray(mcuTimeline) ? mcuTimeline.length : 0;
+    const totalProjects = typeof mcuTimeline !== "undefined" && Array.isArray(mcuTimeline) ? mcuTimeline.length : 0;
 
     let watchedCount = 0;
-    if (Array.isArray(mcuTimeline) && Array.isArray(watchedMovies)) {
-        // Normalize titles (lowercase and trim) to prevent mismatch bugs
-        const normalizedWatched = watchedMovies.map(title => 
-            typeof title === 'string' ? title.toLowerCase().trim() : ''
-        );
-
-        watchedCount = mcuTimeline.filter(movie => {
-            if (!movie.title) return false;
-            const movieTitle = movie.title.toLowerCase().trim();
-            return normalizedWatched.includes(movieTitle);
-        }).length;
+    if (totalProjects > 0 && Array.isArray(watchedMovies)) {
+        watchedCount = mcuTimeline.filter(movie => isProjectWatched(movie, watchedMovies)).length;
     }
 
+    const clampedWatched = Math.min(watchedCount, totalProjects);
     const percentage = totalProjects > 0
-        ? Math.min(Math.round((watchedCount / totalProjects) * 100), 100)
+        ? Math.min(Math.round((clampedWatched / totalProjects) * 100), 100)
         : 0;
 
     const progressBar = document.getElementById("overallProgress");
     if (progressBar) {
-        progressBar.style.width = percentage + "%";
+        progressBar.style.width = `${percentage}%`;
+        progressBar.setAttribute("aria-valuenow", String(percentage));
     }
 
     const percentageElement = document.getElementById("overallPercentage");
     if (percentageElement) {
-        percentageElement.textContent = percentage + "%";
+        percentageElement.textContent = `${percentage}%`;
     }
 
     const overallText = document.getElementById("overallText");
     if (overallText) {
-        overallText.textContent = `${watchedCount} / ${totalProjects} Completed`;
+        overallText.textContent = `${clampedWatched} / ${totalProjects} Completed`;
     }
 
     const remainingText = document.getElementById("remainingText");
     if (remainingText) {
-        const remaining = Math.max(totalProjects - watchedCount, 0);
+        const remaining = Math.max(totalProjects - clampedWatched, 0);
         remainingText.textContent = `${remaining} Remaining`;
     }
-
-    console.log(`MCU Progress: ${watchedCount} / ${totalProjects} (${percentage}%)`);
 }
 
 function updateStatistics() {
-    if (typeof mcuTimeline === "undefined") return;
+    if (typeof mcuTimeline === "undefined" || !Array.isArray(mcuTimeline)) return;
 
     let movies = 0;
     let series = 0;
@@ -207,259 +429,372 @@ function updateStatistics() {
     let totalMinutes = 0;
 
     mcuTimeline.forEach(movie => {
-        const type = (movie.type || "").toLowerCase();
-        if (type.includes("movie")) movies++;
-        else if (type.includes("series")) series++;
-        else if (type.includes("special") || type.includes("one-shot")) specials++;
+        const type = (movie.type || "").toLowerCase().trim();
+        if (type === "movie") movies++;
+        else if (type === "series") series++;
+        else if (type.includes("special") || type.includes("one-shot") || type === "oneshot") specials++;
 
-        if (movie.runtime) {
-            const matches = movie.runtime.toString().match(/\d+/);
-            if (matches) {
-                totalMinutes += parseInt(matches[0], 10);
+        if (movie.runtime != null) {
+            const numeric = typeof movie.runtime === "number"
+                ? movie.runtime
+                : parseInt(String(movie.runtime).replace(/[^\d]/g, ""), 10);
+            if (!Number.isNaN(numeric) && numeric > 0) {
+                totalMinutes += numeric;
             }
         }
     });
 
     const movieCountEl = document.getElementById("movieCount");
-    if (movieCountEl) movieCountEl.textContent = movies;
+    if (movieCountEl) movieCountEl.textContent = String(movies);
 
     const seriesCountEl = document.getElementById("seriesCount");
-    if (seriesCountEl) seriesCountEl.textContent = series;
+    if (seriesCountEl) seriesCountEl.textContent = String(series);
 
     const specialCountEl = document.getElementById("specialCount");
-    if (specialCountEl) specialCountEl.textContent = specials;
+    if (specialCountEl) specialCountEl.textContent = String(specials);
 
     const runtimeCountEl = document.getElementById("runtimeCount");
     if (runtimeCountEl) {
         const totalHours = Math.round(totalMinutes / 60);
-        runtimeCountEl.textContent = totalHours + "h";
+        runtimeCountEl.textContent = `${totalHours}h`;
     }
 }
 
 // ===== Watch Status Toggle Function ===== //
-function toggleWatchStatus(movieTitle, buttonElement) {
-    const index = watchedMovies.indexOf(movieTitle);
+function toggleWatchStatus(projectKey, buttonElement) {
+    if (!projectKey) return;
 
-    if (index > -1) {
-        watchedMovies.splice(index, 1);
-        if (buttonElement) {
-            buttonElement.classList.remove("watched");
-            buttonElement.innerHTML = `<i class="fa-solid fa-circle"></i> Mark Watched`;
-            buttonElement.style.background = "rgba(255,255,255,0.1)";
-            buttonElement.style.border = "1px solid rgba(255,255,255,0.2)";
-        }
+    const lowerKey = projectKey.toLowerCase().trim();
+    const existingIndex = watchedMovies.findIndex(
+        item => typeof item === "string" && item.toLowerCase().trim() === lowerKey
+    );
+
+    const nowWatched = existingIndex === -1;
+
+    if (nowWatched) {
+        watchedMovies.push(projectKey);
     } else {
-        watchedMovies.push(movieTitle);
-        if (buttonElement) {
-            buttonElement.classList.add("watched");
-            buttonElement.innerHTML = `<i class="fa-solid fa-check-circle"></i> Watched`;
-            buttonElement.style.background = "#16a34a";
-            buttonElement.style.border = "1px solid #22c55e";
-        }
+        watchedMovies.splice(existingIndex, 1);
     }
 
-    // Remove Duplicates
     watchedMovies = [...new Set(watchedMovies)];
+    saveWatchedList(watchedMovies);
 
-    // Save
-    localStorage.setItem("mcuWatchedList", JSON.stringify(watchedMovies));
-    
-    // Update Everything
-    checkAndNotifyAchievements();
+    if (buttonElement) {
+        buttonElement.classList.toggle("watched", nowWatched);
+        buttonElement.innerHTML = `<i class="fa-solid ${nowWatched ? "fa-check-circle" : "fa-circle"}"></i> ${nowWatched ? "Watched" : "Mark Watched"}`;
+    }
+
+    // Keep all sections synchronized without losing active search/filters
+    if (typeof checkAndNotifyAchievements === "function") checkAndNotifyAchievements();
     updateDashboard();
     updateStatistics();
-    renderAchievements();
+    if (typeof renderAchievements === "function") renderAchievements();
     updateContinueWatching();
+    renderComingSoon();
+    if (typeof applyFiltersAndRender === "function") applyFiltersAndRender();
 }
 
-// ===== Movie Details Popup ===== //
+// ===== Details Modal Helpers ===== //
 const modal = document.getElementById("detailsModal");
 const modalBody = document.getElementById("modalBody");
-const closeBtn = document.querySelector(".close");
+const closeBtn = document.querySelector("#detailsModal .close");
+
+function closeDetailsModal() {
+    if (modal) {
+        modal.style.display = "none";
+        document.body.style.overflow = "";
+    }
+}
 
 function openMovieModal(movie) {
-    if (!modal || !modalBody) return;
+    if (!modal || !modalBody || !movie) return;
 
-    const characterList = movie.characters && movie.characters.length > 0 
-        ? movie.characters.join(", ") 
+    const projectKey = getProjectKey(movie);
+    const isWatched = isProjectWatched(movie, watchedMovies);
+
+    const safeTitle = escapeHtml(movie.title);
+    const safePoster = escapeHtml(sanitizeUrl(movie.poster, true) || FALLBACK_POSTER);
+    const safeBackdrop = escapeHtml(sanitizeUrl(movie.backdrop, true));
+    const safeLogo = escapeHtml(sanitizeUrl(movie.logo, true));
+    const safeStreamingUrl = sanitizeUrl(movie.streamingUrl, false);
+    const safeStreaming = escapeHtml(movie.streaming || "N/A");
+    const safeDirector = escapeHtml(movie.director || "N/A");
+    const safeRelease = escapeHtml(movie.releaseDate || movie.timelineYear || "N/A");
+    const safeType = escapeHtml(movie.type || "N/A");
+    const safeRating = escapeHtml(movie.userRating || "N/A");
+    const safeDesc = escapeHtml(movie.description || "Detailed synopsis coming soon for this project.");
+    const characterList = Array.isArray(movie.characters) && movie.characters.length > 0
+        ? escapeHtml(movie.characters.join(", "))
         : "N/A";
 
-    // Synchronized check using movie.title
-    const isWatched = watchedMovies.includes(movie.title);
+    const iconsHtml = (() => {
+        if (!movie.icon) return "<div></div>";
+        const iconList = Array.isArray(movie.icon) ? movie.icon : [movie.icon];
+        const imgs = iconList
+            .map(iconPath => sanitizeUrl(iconPath, true))
+            .filter(Boolean)
+            .map(safeIcon => {
+                const imgTag = `<img src="${escapeHtml(safeIcon)}" alt="Character Icon" class="modal-char-icon" onerror="this.style.display='none';">`;
+                if (safeStreamingUrl) {
+                    return `<a href="${escapeHtml(safeStreamingUrl)}" target="_blank" rel="noopener noreferrer" title="Watch ${safeTitle}">${imgTag}</a>`;
+                }
+                return imgTag;
+            })
+            .join("");
+        return `<div class="modal-icons-row">${imgs}</div>`;
+    })();
 
     modalBody.innerHTML = `
-        <div style="position: relative; width: 100%; height: 100%;">
-            
-            ${movie.backdrop ? `
-                <div style="position: absolute; inset: 0; background: url('${movie.backdrop}') center/cover no-repeat; opacity: 0.55; z-index: 1; pointer-events: none;"></div>
-                <div style="position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(11,17,32,0.65), rgba(11,17,32,0.92)); z-index: 1; pointer-events: none;"></div>
-            ` : ''}
-            
-            <div style="position: relative; z-index: 2; display: flex; gap: 30px; flex-wrap: wrap; align-items: stretch; height: 100%;">
-                
-                <img src="${movie.poster}" alt="${movie.title}" style="width: 210px; height: 315px; border-radius: 8px; object-fit: cover; box-shadow: 0 8px 25px rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.15);">
-                
-                <div style="flex: 1; min-width: 260px; display: flex; flex-direction: column; justify-content: space-between;">
+        <div class="modal-inner-wrap">
+            ${safeBackdrop ? `
+                <div class="modal-backdrop-img" style="background-image: url('${safeBackdrop}');"></div>
+                <div class="modal-backdrop-overlay"></div>
+            ` : ""}
+
+            <div class="modal-layout">
+                <img
+                    src="${safePoster}"
+                    alt="${safeTitle}"
+                    class="modal-poster-img"
+                    onerror="this.onerror=null; this.src='${FALLBACK_POSTER}';"
+                >
+
+                <div class="modal-details-col">
                     <div>
-                        <div style="text-align: center; margin-bottom: 15px;">
-                            ${movie.logo 
-                                ? `<img src="${movie.logo}" alt="${movie.title}" style="max-height: 52px; max-width: 100%; object-fit: contain; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.7)); display: inline-block;">` 
-                                : `<h2 style="color: var(--gold); font-family: 'Cinzel', serif; font-size: 26px;">${movie.title}</h2>`
+                        <div class="modal-title-header">
+                            ${safeLogo
+                                ? `<img src="${safeLogo}" alt="${safeTitle}" class="modal-logo-img" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"><h2 class="modal-fallback-title" style="display:none;">${safeTitle}</h2>`
+                                : `<h2 class="modal-fallback-title">${safeTitle}</h2>`
                             }
                         </div>
-                        
-                        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 16px; margin-bottom: 15px; font-size: 13.5px;">
-                            <p style="color: #cbd5e1; margin: 0;"><strong>Release:</strong> <span style="color: #94a3b8;">${movie.releaseDate || movie.timelineYear || "N/A"}</span></p>
-                            <p style="color: #cbd5e1; margin: 0;"><strong>Category:</strong> <span style="color: #94a3b8;">${movie.type || "N/A"}</span></p>
-                            ${movie.season ? `<p style="color: #cbd5e1; margin: 0;"><strong>Season:</strong> <span style="color: #94a3b8;">${movie.season}</span></p>` : ''}
-                            ${movie.episodes ? `<p style="color: #cbd5e1; margin: 0;"><strong>Episodes:</strong> <span style="color: #94a3b8;">${movie.episodes}</span></p>` : ''}
-                            <p style="color: #cbd5e1; margin: 0;"><strong>Runtime:</strong> <span style="color: #94a3b8;">${movie.runtime ? movie.runtime + " mins" : "N/A"}</span></p>
-                            <p style="color: #cbd5e1; margin: 0;"><strong>Rating:</strong> <span style="color: #fbbf24; display: inline-flex; align-items: center; gap: 4px;"><i class="fa-solid fa-star"></i> ${movie.userRating || "N/A"}</span></p>
-                            <p style="color: #cbd5e1; margin: 0;"><strong>Streaming:</strong> <span style="color: #38bdf8; font-weight: 600;">${movie.streaming || "N/A"}</span></p>
-                            <p style="color: #cbd5e1; margin: 0;"><strong>Director:</strong> <span style="color: #94a3b8;">${movie.director || "N/A"}</span></p>
+
+                        <div class="modal-meta-grid">
+                            <p><strong>Release:</strong> <span>${safeRelease}</span></p>
+                            <p><strong>Category:</strong> <span>${safeType}</span></p>
+                            ${movie.season ? `<p><strong>Season:</strong> <span>${escapeHtml(movie.season)}</span></p>` : ""}
+                            ${movie.episodes ? `<p><strong>Episodes:</strong> <span>${escapeHtml(movie.episodes)}</span></p>` : ""}
+                            <p><strong>Runtime:</strong> <span>${movie.runtime ? `${escapeHtml(movie.runtime)} mins` : "N/A"}</span></p>
+                            <p><strong>Rating:</strong> <span class="rating-text"><i class="fa-solid fa-star"></i> ${safeRating}</span></p>
+                            <p><strong>Streaming:</strong> <span class="streaming-text">${safeStreaming}</span></p>
+                            <p><strong>Director:</strong> <span>${safeDirector}</span></p>
                         </div>
 
-                        <p style="color: #cbd5e1; font-size: 13px; margin-bottom: 12px;"><strong>Characters:</strong> <span style="color: #94a3b8;">${characterList}</span></p>
-                        
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                            ${movie.icon ? `
-                                <div style="display: flex; gap: 8px; align-items: center;">
-                                    ${Array.isArray(movie.icon) 
-                                        ? movie.icon.map(iconPath => `
-                                            <a href="${movie.streamingUrl || '#'}" target="_blank" title="Watch ${movie.title} Directly" style="display: inline-block; cursor: pointer;">
-                                                <img src="${iconPath}" alt="Icon" style="width: 45px; height: 45px; object-fit: contain; display: block;">
-                                            </a>
-                                        `).join('')
-                                        : `
-                                            <a href="${movie.streamingUrl || '#'}" target="_blank" title="Watch ${movie.title} Directly" style="display: inline-block; cursor: pointer;">
-                                                <img src="${movie.icon}" alt="Icon" style="width: 55px; height: 55px; object-fit: contain; display: block;">
-                                            </a>
-                                        `
-                                    }
-                                </div>
-                            ` : '<div></div>'}
+                        <p class="modal-characters"><strong>Characters:</strong> <span>${characterList}</span></p>
 
-                            <button id="modal-watch-btn" class="watch-btn ${isWatched ? 'watched' : ''}" style="background: ${isWatched ? '#16a34a' : 'rgba(255,255,255,0.1)'}; color: white; border: 1px solid ${isWatched ? '#22c55e' : 'rgba(255,255,255,0.2)'}; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 6px;">
-                                <i class="fa-solid ${isWatched ? 'fa-check-circle' : 'fa-circle'}"></i> 
-                                ${isWatched ? 'Watched' : 'Mark Watched'}
-                            </button>
+                        <div class="modal-actions-row">
+                            ${iconsHtml}
+
+                            <div class="modal-action-buttons">
+                                ${safeStreamingUrl ? `
+                                    <a href="${escapeHtml(safeStreamingUrl)}" target="_blank" rel="noopener noreferrer" class="stream-link-btn">
+                                        <i class="fa-solid fa-arrow-up-right-from-square"></i> Watch
+                                    </a>
+                                ` : ""}
+                                <button type="button" id="modal-watch-btn" class="watch-btn modal-watch-btn ${isWatched ? "watched" : ""}">
+                                    <i class="fa-solid ${isWatched ? "fa-check-circle" : "fa-circle"}"></i>
+                                    ${isWatched ? "Watched" : "Mark Watched"}
+                                </button>
+                            </div>
                         </div>
                     </div>
-                    
-                    <p style="color: #e2e8f0; line-height: 1.6; font-size: 13.5px; background: rgba(0,0,0,0.35); padding: 10px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.06);">${movie.description || "Detailed synopsis coming soon for this project."}</p>
+
+                    <p class="modal-description">${safeDesc}</p>
                 </div>
             </div>
         </div>
     `;
 
-    // Hook up modal button to toggle function and safely re-render background cards
-    const modalWatchBtn = modalBody.querySelector('#modal-watch-btn');
+    const modalWatchBtn = modalBody.querySelector("#modal-watch-btn");
     if (modalWatchBtn) {
-        modalWatchBtn.onclick = function() {
-            toggleWatchStatus(movie.title, modalWatchBtn);
-            if (typeof renderTimeline === 'function') {
-                renderTimeline(mcuTimeline);
-            }
-            updateContinueWatching();
-        };
+        modalWatchBtn.addEventListener("click", () => {
+            toggleWatchStatus(projectKey, modalWatchBtn);
+        });
     }
 
     modal.style.display = "block";
+    document.body.style.overflow = "hidden";
 }
 
-// Close modal when clicking the 'X' button
+function openAchievementModal(ach, isUnlocked) {
+    if (!modal || !modalBody || !ach) return;
+
+    const iconPath = getBadgeIconPath(ach.badge);
+    const safeTitle = escapeHtml(ach.title);
+    const safeBadge = escapeHtml(ach.badge);
+    const safeReq = escapeHtml(ach.requirement);
+    const safeDetails = escapeHtml(ach.details || "");
+
+    modalBody.innerHTML = `
+        <div class="achievement-modal-body">
+            <img
+                src="${escapeHtml(iconPath)}"
+                alt="${safeBadge}"
+                class="achievement-modal-img ${isUnlocked ? "unlocked" : "locked"}"
+                onerror="this.onerror=null; this.src='${SAFE_FALLBACK_ICON}';"
+            >
+            <span class="achievement-status-pill ${isUnlocked ? "unlocked" : "locked"}">
+                ${isUnlocked ? "Unlocked" : "Locked"}
+            </span>
+            <h2>${safeTitle}</h2>
+            <p class="achievement-modal-badge">Badge: ${safeBadge}</p>
+            <p class="achievement-modal-req"><strong>Requirement:</strong> ${safeReq}</p>
+            ${safeDetails ? `<p class="achievement-modal-details">${safeDetails}</p>` : ""}
+        </div>
+    `;
+
+    modal.style.display = "block";
+    document.body.style.overflow = "hidden";
+}
+
+function showStatusDialog(title, message) {
+    if (!modal || !modalBody) return;
+    modalBody.innerHTML = `
+        <div class="status-dialog-body">
+            <h2>${escapeHtml(title)}</h2>
+            <p>${escapeHtml(message)}</p>
+            <button type="button" class="filter active" id="statusDialogOkBtn">Close</button>
+        </div>
+    `;
+    const okBtn = modalBody.querySelector("#statusDialogOkBtn");
+    if (okBtn) okBtn.addEventListener("click", closeDetailsModal);
+    modal.style.display = "block";
+    document.body.style.overflow = "hidden";
+}
+
 if (closeBtn) {
-    closeBtn.addEventListener("click", () => {
-        modal.style.display = "none";
-    });
+    closeBtn.addEventListener("click", closeDetailsModal);
 }
 
-// Close modal when clicking anywhere outside the modal box
 window.addEventListener("click", (e) => {
     if (e.target === modal) {
-        modal.style.display = "none";
+        closeDetailsModal();
+    }
+});
+
+document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && modal && modal.style.display === "block") {
+        closeDetailsModal();
     }
 });
 
 // ===== Coming Soon ===== //
 function renderComingSoon() {
     const comingSoonContainer = document.getElementById("comingSoonContainer");
-    if (!comingSoonContainer) return;
+    if (!comingSoonContainer || typeof mcuTimeline === "undefined") return;
 
-    const upcomingData = typeof upcoming !== "undefined" ? upcoming : mcuTimeline.filter(movie => {
-        const releaseYear = new Date(movie.releaseDate).getFullYear();
-        return releaseYear >= 2026;
-    });
+    const hasExplicitUpcoming = typeof upcoming !== "undefined" && Array.isArray(upcoming) && upcoming.length > 0;
+    const upcomingData = hasExplicitUpcoming
+        ? upcoming
+        : mcuTimeline.filter(movie => {
+            if ((movie.status || "").toLowerCase() === "upcoming") return true;
+            const parsedDate = parseReleaseDate(movie.releaseDate, movie.releaseYear);
+            const year = parsedDate ? parsedDate.getFullYear() : Number(movie.releaseYear || 0);
+            return year >= 2026;
+        });
 
     comingSoonContainer.innerHTML = "";
 
     if (!upcomingData || upcomingData.length === 0) {
-        comingSoonContainer.innerHTML = `<p style="text-align: center; color: #b0b0b0; grid-column: 1 / -1; padding: 30px;">No upcoming projects announced.</p>`;
+        comingSoonContainer.innerHTML = `
+            <div class="empty-state">
+                <i class="fa-solid fa-calendar-clock"></i>
+                <p>No upcoming projects announced.</p>
+            </div>
+        `;
         return;
     }
+
+    const fragment = document.createDocumentFragment();
 
     upcomingData.forEach(movie => {
         const card = document.createElement("div");
         card.classList.add("movie-card");
+        card.setAttribute("tabindex", "0");
+        card.setAttribute("role", "button");
+
+        const safeTitle = escapeHtml(movie.title);
+        const safePoster = escapeHtml(sanitizeUrl(movie.poster, true) || FALLBACK_POSTER);
+        const safeDate = escapeHtml(movie.releaseDate || movie.timelineYear || "TBA");
+        const safeType = escapeHtml(movie.type || "Upcoming");
+        const isWatched = isProjectWatched(movie, watchedMovies);
 
         card.innerHTML = `
             <div class="movie-poster">
-                <img src="${movie.poster}" alt="${movie.title}" loading="lazy">
+                <img src="${safePoster}" alt="${safeTitle}" loading="lazy" onerror="this.onerror=null; this.src='${FALLBACK_POSTER}';">
+                ${isWatched ? '<span class="watched-corner-badge" title="Watched"><i class="fa-solid fa-check"></i></span>' : ""}
             </div>
             <div class="movie-info">
                 <div>
-                    <h3>${movie.title}</h3>
-                    <p>${movie.releaseDate || movie.timelineYear || "TBA"}</p>
-                    <span>${movie.type || "Upcoming"}</span>
+                    <h3>${safeTitle}</h3>
+                    <p>${safeDate}</p>
+                    ${movie.season ? `<p class="card-season">Season ${escapeHtml(movie.season)}</p>` : ""}
+                    <span class="type-pill">${safeType}</span>
                 </div>
             </div>
         `;
 
-        card.addEventListener("click", () => {
-            openMovieModal(movie);
+        card.addEventListener("click", () => openMovieModal(movie));
+        card.addEventListener("keydown", (e) => {
+            if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                openMovieModal(movie);
+            }
         });
 
-        comingSoonContainer.appendChild(card);
+        fragment.appendChild(card);
     });
+
+    comingSoonContainer.appendChild(fragment);
 }
 
 // ===== Continue Watching / Next Up ===== //
 function updateContinueWatching() {
     const continueContainer = document.getElementById("continueWatchingContainer");
-    if (!continueContainer) return;
+    if (!continueContainer || typeof mcuTimeline === "undefined") return;
 
-    const nextProject = mcuTimeline.find(movie => !watchedMovies.includes(movie.title));
+    const nextProject = mcuTimeline.find(movie => !isProjectWatched(movie, watchedMovies));
 
     if (!nextProject) {
         continueContainer.innerHTML = `
-            <div style="background: var(--glass); padding: 25px; border-radius: 15px; text-align: center; border: 1px solid var(--border);">
-                <h3 style="color: var(--gold); margin-bottom: 8px; font-family: 'Cinzel', serif;">Congratulations! 🎉</h3>
-                <p style="color: #b0b0b0; font-size: 14px;">You have completed the entire MCU timeline available so far!</p>
+            <div class="continue-complete-card">
+                <h3>Congratulations!</h3>
+                <p>You have completed the entire MCU timeline available so far.</p>
             </div>
         `;
         return;
     }
 
-    continueContainer.innerHTML = `
-        <div style="background: var(--glass); border-radius: 18px; padding: 25px; border: 1px solid var(--border); box-shadow: var(--shadow); display: flex; gap: 20px; flex-wrap: wrap; align-items: center; position: relative; overflow: hidden;">
-            
-            ${nextProject.backdrop ? `
-                <div style="position: absolute; inset: 0; background: url('${nextProject.backdrop}') center/cover no-repeat; opacity: 0.15; z-index: 1;"></div>
-            ` : ''}
+    const projectKey = getProjectKey(nextProject);
+    const safeTitle = escapeHtml(nextProject.title);
+    const safePoster = escapeHtml(sanitizeUrl(nextProject.poster, true) || FALLBACK_POSTER);
+    const safeBackdrop = escapeHtml(sanitizeUrl(nextProject.backdrop, true));
+    const safeDate = escapeHtml(nextProject.releaseDate || nextProject.timelineYear || "");
+    const safeType = escapeHtml(nextProject.type || "");
+    const seasonSuffix = nextProject.season ? ` • Season ${escapeHtml(nextProject.season)}` : "";
 
-            <div style="position: relative; z-index: 2; display: flex; gap: 20px; width: 100%; align-items: center; flex-wrap: wrap;">
-                <img src="${nextProject.poster}" alt="${nextProject.title}" style="width: 100px; height: 150px; border-radius: 8px; object-fit: cover; box-shadow: 0 4px 15px rgba(0,0,0,0.5);">
-                
-                <div style="flex: 1; min-width: 220px; position: relative; z-index: 2;">
-                    <span style="font-size: 11px; text-transform: uppercase; background: rgba(255,215,0,0.15); color: var(--gold); padding: 4px 10px; border-radius: 20px; font-weight: bold; letter-spacing: 0.5px;">Next Up in Timeline</span>
-                    <h3 style="color: #fff; font-size: 20px; margin: 8px 0 6px 0; font-family: 'Cinzel', serif;">${nextProject.title}</h3>
-                    <p style="color: #b0b0b0; font-size: 13px; margin-bottom: 12px;">${nextProject.releaseDate || nextProject.timelineYear || ""} • ${nextProject.type || ""}</p>
-                    
-                    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-                        <button class="watch-btn" id="nextUpWatchBtn" style="margin-top: 0;">
+    continueContainer.innerHTML = `
+        <div class="continue-banner-card">
+            ${safeBackdrop ? `<div class="continue-backdrop" style="background-image: url('${safeBackdrop}');"></div>` : ""}
+
+            <div class="continue-banner-content">
+                <img
+                    src="${safePoster}"
+                    alt="${safeTitle}"
+                    class="continue-poster"
+                    onerror="this.onerror=null; this.src='${FALLBACK_POSTER}';"
+                >
+
+                <div class="continue-meta">
+                    <span class="next-up-badge">Next Up in Timeline</span>
+                    <h3>${safeTitle}</h3>
+                    <p>${safeDate}${seasonSuffix} • ${safeType}</p>
+
+                    <div class="continue-actions">
+                        <button type="button" class="watch-btn" id="nextUpWatchBtn">
                             <i class="fa-solid fa-check-circle"></i> Mark Watched
                         </button>
-                        <button class="filter" id="nextUpDetailsBtn" style="margin-top: 0; background: rgba(255,255,255,0.1);">
+                        <button type="button" class="filter" id="nextUpDetailsBtn">
                             View Details
                         </button>
                     </div>
@@ -473,12 +808,7 @@ function updateContinueWatching() {
 
     if (watchBtn) {
         watchBtn.addEventListener("click", () => {
-            toggleWatchStatus(nextProject.title, watchBtn);
-            if (typeof renderTimeline === 'function') {
-                renderTimeline(mcuTimeline);
-            }
-            updateContinueWatching();
-            renderAchievements();
+            toggleWatchStatus(projectKey, watchBtn);
         });
     }
 
@@ -489,7 +819,7 @@ function updateContinueWatching() {
     }
 }
 
-// ===== Secret Logo Reset (3x Click) ===== //
+// ===== Secret Logo Reset (3x Click) — In-App Modal ===== //
 let resetClickCount = 0;
 let resetTimer = null;
 
@@ -499,10 +829,10 @@ if (logoTrigger) {
     logoTrigger.addEventListener("click", () => {
         resetClickCount++;
         clearTimeout(resetTimer);
-        
+
         if (resetClickCount === 3) {
             resetClickCount = 0;
-            promptForResetPassword();
+            openThanosResetModal();
         } else {
             resetTimer = setTimeout(() => {
                 resetClickCount = 0;
@@ -511,61 +841,67 @@ if (logoTrigger) {
     });
 }
 
-function promptForResetPassword() {
-    const passwordInput = prompt("⚡ Perfectly balanced, as all things should be...\nEnter the secret password to trigger the Thanos Snap (Reset Data):");
-    
-    if (passwordInput === "thanos") {
-        const choice = confirm("Snap your fingers? This will wipe half the universe (Reset your Watchlist). Proceed?");
-        
-        if (choice) {
-            localStorage.removeItem("mcuWatchedList");
-            localStorage.removeItem("mcu_unlocked_achievements");
-            watchedMovies = [];
-            
-            updateDashboard();
-            renderTimeline(mcuTimeline);
-            renderAchievements();
-            updateContinueWatching();
-            
-            alert("💥 *SNAP* \n\nThe watchlist and achievements have been reduced to atoms. Everything is reset.");
-        }
-    } else if (passwordInput !== null) {
-        alert("🛡️ 'Dread it. Run from it. Destiny arrives all the same.'\n\nIncorrect password. Access denied.");
-    }
-}
+function openThanosResetModal() {
+    if (!modal || !modalBody) return;
 
-// ===== Timeline Progress Bar ===== //
-function toggleBranches(branchId) {
-    const branches = document.getElementById(branchId);
-    if (!branches) return;
-    branches.classList.toggle("active");
-}
+    modalBody.innerHTML = `
+        <div class="status-dialog-body">
+            <h2>Thanos Snap Protocol</h2>
+            <p>Perfectly balanced, as all things should be. Enter the secret keyword to reset your watchlist and unlocked badges.</p>
+            <form id="thanosResetForm" class="thanos-reset-form">
+                <input
+                    type="password"
+                    id="thanosPasswordInput"
+                    placeholder="Enter secret keyword..."
+                    autocomplete="off"
+                    required
+                >
+                <p id="thanosErrorMsg" class="thanos-error-msg" role="alert"></p>
+                <div class="thanos-form-actions">
+                    <button type="button" class="filter" id="thanosCancelBtn">Cancel</button>
+                    <button type="submit" class="thanos-snap-btn">Trigger Snap</button>
+                </div>
+            </form>
+        </div>
+    `;
 
-function loadPhase(phaseName, element) {
-    console.log("Loading watchlist for:", phaseName);
+    modal.style.display = "block";
+    document.body.style.overflow = "hidden";
 
-    document
-        .querySelectorAll(".phase-node")
-        .forEach(node => {
-            node.classList.remove("selected");
+    const form = modalBody.querySelector("#thanosResetForm");
+    const input = modalBody.querySelector("#thanosPasswordInput");
+    const errorMsg = modalBody.querySelector("#thanosErrorMsg");
+    const cancelBtn = modalBody.querySelector("#thanosCancelBtn");
+
+    if (input) input.focus();
+    if (cancelBtn) cancelBtn.addEventListener("click", closeDetailsModal);
+
+    if (form) {
+        form.addEventListener("submit", (e) => {
+            e.preventDefault();
+            const val = input ? input.value.trim() : "";
+            if (val === "thanos") {
+                try {
+                    localStorage.removeItem(WATCHED_STORAGE_KEY);
+                    localStorage.removeItem(ACHIEVEMENT_STORAGE_KEY);
+                } catch {
+                    // Ignore storage error
+                }
+                watchedMovies = [];
+                updateDashboard();
+                updateStatistics();
+                if (typeof applyFiltersAndRender === "function") applyFiltersAndRender();
+                if (typeof renderAchievements === "function") renderAchievements();
+                updateContinueWatching();
+                renderComingSoon();
+
+                showStatusDialog(
+                    "Snap Complete",
+                    "Your watchlist and achievements have been reset."
+                );
+            } else if (errorMsg) {
+                errorMsg.textContent = "Incorrect keyword. Access denied.";
+            }
         });
-
-    if (element) {
-        const phaseNode =
-            element.querySelector(".phase-node");
-        if (phaseNode) {
-            phaseNode.classList.add("selected");
-        }
-    }
-
-    if (typeof mcuTimeline !== "undefined") {
-        const movies = mcuTimeline.filter(movie => {
-            return movie.timelineSection === phaseName;
-        });
-
-        console.log(
-            `Found ${movies.length} movies for ${phaseName}`,
-            movies
-        );
     }
 }

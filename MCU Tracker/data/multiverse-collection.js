@@ -341,7 +341,7 @@ const multiverseCollection = [
             "images/icon/professor-x.png"
         ],
         logo: "images/logos/xmen-futurepast.png",
-        backdrop: "images/backdrops/xmen-future-past.jpg",
+        backdrop: "images/backdrops/xmen-futurepast.jpg",
         description: "The ultimate X-Men ensemble fights a war for the survival of the species across two time periods as they join forces with their younger selves in an epic battle that must change the past, to save our future",
         director: "Bryan Singer",
         characters: [
@@ -952,7 +952,7 @@ const multiverseCollection = [
         poster: "images/posters/spiderman-friendlyneigborhood.jpg",
         icon: "images/icon/spider-man.png",
         logo: "images/logos/spiderman-friendlyneighborhood.png",
-        backdrop: "images/backdrops/spiderman-friendlyneighborhood.jpg",
+        backdrop: "images/backdrops/spiderman-friendlyneigborhood.jpg",
         description: "Peter Parker's journey to becoming Spider-Man in an alternate timeline, featuring a unique art style and classic comic inspirations.",
         director: "Melanie Gannon",
         characters: [
@@ -998,7 +998,7 @@ const multiverseCollection = [
     {
         id: 124,
         title: "Marvel Studios: Legends",
-        slug: "marvel-studios-legends",
+        slug: "marvel-studios-legends-season-3",
         type: "Series",
         season: 3,
         episodes: 3,
@@ -1027,7 +1027,7 @@ const multiverseCollection = [
     {
         id: 125,
         title: "X-Men '97",
-        slug: "x-men-97",
+        slug: "x-men-97-season-2",
         type: "Series",
         season: 2,
         episodes: 9,

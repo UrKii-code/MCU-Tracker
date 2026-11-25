@@ -131,7 +131,7 @@ const multiverseSaga = [
             "images/icon/falcon.png",
             "images/icon/winter-soldier.png"
         ],
-        logo: "images/logos/falconwintersoldier.png",
+        logo: "images/logos/falconnwintersoldier.png",
         backdrop: "images/backdrops/falconnwintersoldier.jpg",
         description: "Following the events of Avengers: Endgame, Sam Wilson and Bucky Barnes team up in a global adventure that tests their abilities",
         director: "Kari Skogland",
@@ -544,7 +544,7 @@ const multiverseSaga = [
         timelineSection: "Post-Blip",
         timelineOrder: 79,
         timelineYear: "2025",
-        releaseDate: "24-11-2011",
+        releaseDate: "25-11-2022",
         releaseYear: 2022,
         runtime: 45,
         status: "Not Started",

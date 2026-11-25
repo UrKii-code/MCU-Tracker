@@ -837,7 +837,7 @@ const infinityPart3 = [
             "images/icon/dagger.png"
         ],
         logo: "images/logos/cloakndagger-season1.png",
-        backdrop: "images/backdrops/cloakdagger-season1.jpg",
+        backdrop: "images/backdrops/cloakndagger-season1.jpg",
         description: "Two teenagers from very different backgrounds acquire superpowers while unearthing secrets from their pasts in New Orleans.",
         director: "Joe Pokaski (Creator)",
         characters: [

@@ -6,8 +6,9 @@
   "scripts": {
     "dev": "node server.js",
     "start": "node server.js",
-    "build": "node --check server.js",
-    "lint": "node --check server.js"
+    "test": "node --test tests/mcu-tracker.test.mjs",
+    "lint": "node scripts/validate.mjs",
+    "build": "node scripts/validate.mjs && node --test tests/mcu-tracker.test.mjs"
   },
   "dependencies": {
     "express": "^4.21.2"

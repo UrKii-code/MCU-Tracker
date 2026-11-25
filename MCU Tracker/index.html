@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCU Tracker</title>
+    <meta name="description" content="Track every Marvel Cinematic Universe movie, series, special presentation, one-shot, and animated project in chronological order.">
+    <meta property="og:title" content="MCU Tracker">
+    <meta property="og:description" content="Track every Marvel Cinematic Universe movie, series, special presentation, one-shot, and animated project in chronological order.">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <!-- Navigation -->
+    <header class="navbar">
+        <div class="logo" id="logoResetTrigger" title="MCU Tracker">
+            <img src="images/logos/mcu-logo.png" alt="MCU Logo">
+            <span>MCU Tracker</span>
+        </div>
+
+        <button type="button" class="nav-toggle" id="navToggle" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="mainNav">
+            <i class="fa-solid fa-bars"></i>
+        </button>
+
+        <nav id="mainNav">
+            <a href="#hero">Home</a>
+            <a href="#statistics">Statistics</a>
+            <a href="#timeline">Watchlist</a>
+            <a href="#coming-soon">Coming Soon</a>
+            <a href="#achievements">Achievements</a>
+        </nav>
+    </header>
+
+    <!-- Hero Banner -->
+    <section id="hero">
+        <div class="hero-overlay">
+            <h1>Marvel Cinematic Universe</h1>
+            <p>
+                Track every movie, series, special presentation,
+                one-shot and animated project in chronological order.
+            </p>
+
+            <div class="hero-buttons">
+                <button type="button" id="continueBtn">
+                    <i class="fa-solid fa-play"></i> Continue Watching
+                </button>
+                <button type="button" id="timelineBtn">
+                    <i class="fa-solid fa-clock"></i> View Timeline
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- ================= COLLECTION STATISTICS ================= -->
+    <section id="statistics" class="statistics-page">
+
+        <div class="statistics-title">
+            <h2>Collection Statistics</h2>
+        </div>
+
+        <div class="statistics-dashboard">
+
+            <!-- LEFT: STATISTICS -->
+            <div class="stats-cards-grid">
+                <div class="stat-card">
+                    <h3 id="movieCount">0</h3>
+                    <p>Movies</p>
+                </div>
+
+                <div class="stat-card">
+                    <h3 id="seriesCount">0</h3>
+                    <p>Series</p>
+                </div>
+
+                <div class="stat-card">
+                    <h3 id="specialCount">0</h3>
+                    <p>Specials</p>
+                </div>
+
+                <div class="stat-card">
+                    <h3 id="runtimeCount">0h</h3>
+                    <p>Total Runtime</p>
+                </div>
+            </div>
+
+            <!-- RIGHT: PROGRESS -->
+            <div class="progress-wrapper">
+                <h3 class="progress-title">PROGRESS</h3>
+                <div class="progress-card">
+                    <div class="progress-header-row">
+                        <span class="progress-label">Overall Completion</span>
+                        <span id="overallPercentage" class="progress-percentage">0%</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div id="overallProgress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div>
+                    </div>
+                    <div class="progress-footer-row">
+                        <p id="overallText">0 / 0 Completed</p>
+                        <p id="remainingText">0 Remaining</p>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </section>
+
+    <!-- ================= MCU TIMELINE ================= -->
+    <div class="timeline-scroll-wrapper">
+        <div class="mcu-simple-timeline" role="navigation" aria-label="MCU Saga and Phase Timeline">
+            <div class="timeline-line"></div>
+
+            <button type="button" class="timeline-item infinity-saga" data-phase="infinity-saga" data-label="Infinity Saga" title="Filter by Infinity Saga">
+                <div class="timeline-diamond"></div>
+                <span class="timeline-label bottom">Infinity Saga</span>
+            </button>
+
+            <button type="button" class="timeline-item phase-one" data-phase="phase-one" data-label="Phase I" title="Filter by Phase I">
+                <div class="timeline-circle"></div>
+                <span class="timeline-label top">Phase I</span>
+            </button>
+
+            <button type="button" class="timeline-item phase-two" data-phase="phase-two" data-label="Phase II" title="Filter by Phase II">
+                <div class="timeline-circle"></div>
+                <span class="timeline-label bottom">Phase II</span>
+            </button>
+
+            <button type="button" class="timeline-item phase-three" data-phase="phase-three" data-label="Phase III" title="Filter by Phase III">
+                <div class="timeline-circle"></div>
+                <span class="timeline-label top">Phase III</span>
+            </button>
+
+            <button type="button" class="timeline-item phase-four" data-phase="phase-four" data-label="Phase IV" title="Filter by Phase IV">
+                <div class="timeline-circle"></div>
+                <span class="timeline-label bottom">Phase IV</span>
+            </button>
+
+            <button type="button" class="timeline-item saga-node-one" data-phase="multiverse-saga" data-label="Multiverse Saga" title="Filter by Multiverse Saga">
+                <div class="timeline-diamond"></div>
+                <span class="timeline-label top">Multiverse Saga</span>
+            </button>
+
+            <button type="button" class="timeline-item phase-five" data-phase="phase-five" data-label="Phase V" title="Filter by Phase V">
+                <div class="timeline-circle"></div>
+                <span class="timeline-label bottom">Phase V</span>
+            </button>
+
+            <button type="button" class="timeline-item phase-six" data-phase="phase-six" data-label="Phase VI" title="Filter by Phase VI">
+                <div class="timeline-circle"></div>
+                <span class="timeline-label top">Phase VI</span>
+            </button>
+
+            <button type="button" class="timeline-item multiverse-node" data-phase="multiverse-collection" data-label="Multiverse Collection" title="Filter by Multiverse Collection">
+                <div class="timeline-diamond"></div>
+                <span class="timeline-label bottom">Collection</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- ================= CONTINUE WATCHING ================= -->
+    <div class="continue-watching-section">
+        <div id="continueWatchingContainer"></div>
+    </div>
+
+    <!-- Watchlist -->
+    <section id="timeline">
+        <div class="section-title">
+            <h2>All MCU Watchlist</h2>
+        </div>
+
+        <div class="timeline-controls">
+            <div class="search-section">
+                <input type="text" id="searchInput" aria-label="Search movies, series, or characters" placeholder="Search movie, series or character...">
+            </div>
+
+            <div class="filter-section">
+                <button type="button" class="filter active" data-filter="all">All</button>
+                <button type="button" class="filter" data-filter="movie">Movies</button>
+                <button type="button" class="filter" data-filter="series">Series</button>
+                <button type="button" class="filter" data-filter="oneshot">One-Shot</button>
+                <button type="button" class="filter" data-filter="animation">Animation</button>
+            </div>
+
+            <div id="activePhaseBanner" class="active-phase-banner" style="display: none;">
+                <span id="activePhaseLabel"></span>
+                <button type="button" id="clearPhaseFilter" class="clear-phase-btn">
+                    <i class="fa-solid fa-xmark"></i> Clear
+                </button>
+            </div>
+        </div>
+
+        <div id="mcu-timeline"></div>
+    </section>
+
+    <!-- Coming Soon -->
+    <section id="coming-soon">
+        <div class="section-title">
+            <h2>Coming Soon</h2>
+        </div>
+        <div id="comingSoonContainer"></div>
+    </section>
+
+    <!-- Achievements -->
+    <section id="achievements">
+        <div class="section-title">
+            <h2>Achievements</h2>
+        </div>
+        <div id="achievementContainer"></div>
+    </section>
+
+    <!-- Movie Details Modal -->
+    <div id="detailsModal" class="modal" role="dialog" aria-modal="true" aria-label="Project Details">
+        <div class="modal-content">
+            <button type="button" class="close" aria-label="Close modal">&times;</button>
+            <div id="modalBody"></div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer>
+        <p>MCU Tracker © 2026</p>
+    </footer>
+
+    <!-- MCU DATABASE SCRIPTS -->
+    <script src="data/infinity-part1.js"></script>
+    <script src="data/infinity-part2.js"></script>
+    <script src="data/infinity-part3.js"></script>
+    <script src="data/multiverse-saga.js"></script>
+    <script src="data/multiverse-collection.js"></script>
+    <script src="data/upcoming.js"></script>
+    <script src="data/data.js"></script>
+    <script src="data/achievement.js"></script>
+    <script src="data/app.js"></script>
+
+</body>
+</html>

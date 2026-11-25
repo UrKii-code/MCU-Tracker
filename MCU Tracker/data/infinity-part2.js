@@ -186,7 +186,7 @@ const infinityPart2 = [
             "images/icon/groot.png",
         ],
         logo: "images/logos/guardiangalaxy.png",
-        backdrop: "images/backdrops/guardiansgalaxy.jpg",
+        backdrop: "images/backdrops/guardiangalaxy.jpg",
         description: "Light years from Earth, 26 years after being abducted, Peter Quill finds himself the prime target of a manhunt after discovering an orb wanted by Ronan the Accuser",
         director: "James Gunn",
         characters: [
