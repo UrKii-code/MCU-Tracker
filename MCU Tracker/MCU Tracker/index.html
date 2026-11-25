@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCU Tracker</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <!-- Navigation -->
+    <header class="navbar">
+        <div class="logo" id="logoResetTrigger" style="cursor: pointer;" title="MCU Tracker">
+            <img src="images/logos/mcu-logo.png" alt="MCU Logo">
+            <span>MCU Tracker</span>
+        </div>
+
+        <nav>
+            <a href="#hero">Home</a>
+            <a href="#statistics">Statistics</a>
+            <a href="#timeline">Watchlist</a>
+            <a href="#coming-soon">Coming Soon</a>
+            <a href="#achievements">Achievements</a>
+        </nav>
+    </header>
+
+    <!-- Hero Banner -->
+    <section id="hero">
+        <div class="hero-overlay">
+            <h1>Marvel Cinematic Universe</h1>
+            <p>
+                Track every movie, series, special presentation,
+                one-shot and animated project in chronological order.
+            </p>
+
+            <div class="hero-buttons">
+                <button id="continueBtn">
+                    <i class="fa-solid fa-play"></i> Continue Watching
+                </button>
+                <button id="timelineBtn">
+                    <i class="fa-solid fa-clock"></i> View Timeline
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- ================= COLLECTION STATISTICS ================= -->
+    <section id="statistics" class="statistics-page">
+
+        <div class="statistics-title">
+            <h2>Collection Statistics</h2>
+        </div>
+
+        <div class="statistics-dashboard">
+
+            <!-- LEFT: STATISTICS -->
+            <div class="stats-cards-grid">
+                <div class="stat-card">
+                    <h3 id="movieCount">64</h3>
+                    <p>Movies</p>
+                </div>
+
+                <div class="stat-card">
+                    <h3 id="seriesCount">55</h3>
+                    <p>Series</p>
+                </div>
+
+                <div class="stat-card">
+                    <h3 id="specialCount">9</h3>
+                    <p>Specials</p>
+                </div>
+
+                <div class="stat-card">
+                    <h3 id="runtimeCount">545h</h3>
+                    <p>Total Runtime</p>
+                </div>
+            </div>
+
+            <!-- RIGHT: PROGRESS -->
+            <div class="progress-wrapper">
+                <h3 class="progress-title">PROGRESS</h3>
+                <div class="progress-card">
+                    <div class="progress-label">Overall Completion</div>
+                    <div class="progress-bar">
+                        <div id="overallProgress"></div>
+                    </div>
+                    <p id="overallText">0 / 125 Completed</p>
+                </div>
+            </div>
+
+        </div>
+
+    </section>
+
+    <!-- ================= MCU TIMELINE ================= -->
+    <div class="mcu-simple-timeline">
+        <div class="timeline-line"></div>
+
+        <div class="timeline-item infinity-saga">
+            <div class="timeline-diamond"></div>
+            <span class="timeline-label bottom">Infinity Saga</span>
+        </div>
+
+        <div class="timeline-item phase-one">
+            <div class="timeline-circle"></div>
+            <span class="timeline-label top">Phase I</span>
+        </div>
+
+        <div class="timeline-item phase-two">
+            <div class="timeline-circle"></div>
+            <span class="timeline-label bottom">Phase II</span>
+        </div>
+
+        <div class="timeline-item phase-three">
+            <div class="timeline-circle"></div>
+            <span class="timeline-label top">Phase III</span>
+        </div>
+
+        <div class="timeline-item phase-four">
+            <div class="timeline-circle"></div>
+        </div>
+
+        <div class="timeline-item saga-node-one">
+            <div class="timeline-diamond"></div>
+        </div>
+
+        <div class="timeline-item phase-five">
+            <div class="timeline-circle"></div>
+        </div>
+
+        <div class="timeline-item phase-six">
+            <div class="timeline-circle"></div>
+        </div>
+
+        <div class="timeline-item multiverse-node">
+            <div class="timeline-diamond"></div>
+        </div>
+    </div>
+
+    <!-- ================= CONTINUE WATCHING ================= -->
+    <div class="continue-watching-section">
+        <div id="continueWatchingContainer"></div>
+    </div>
+
+    <!-- Watchlist -->
+    <section id="timeline">
+        <div class="section-title">
+            <h2>All MCU Watchlist</h2>
+        </div>
+        
+        <div class="timeline-controls">
+            <div class="search-section">
+                <input type="text" id="searchInput" placeholder="Search movie, series or character...">
+            </div>
+
+            <div class="filter-section">
+                <button class="filter active" data-filter="all">All</button>
+                <button class="filter" data-filter="movie">Movies</button>
+                <button class="filter" data-filter="series">Series</button>
+                <button class="filter" data-filter="oneshot">One-Shot</button>
+                <button class="filter" data-filter="animation">Animation</button>
+            </div>
+        </div>
+
+        <div id="mcu-timeline"></div>
+    </section>
+
+    <!-- Coming Soon -->
+    <section id="coming-soon">
+        <div class="section-title">
+            <h2>Coming Soon</h2>
+        </div>
+        <div id="comingSoonContainer"></div>
+    </section>
+
+    <!-- Achievements -->
+    <section id="achievements">
+        <div class="section-title">
+            <h2>Achievements</h2>
+        </div>
+        <div id="achievementContainer"></div>
+    </section>
+
+    <!-- Movie Details Modal -->
+    <div id="detailsModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <div id="modalBody"></div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer>
+        <p>MCU Tracker © 2026</p>
+    </footer>
+
+    <!-- MCU DATABASE SCRIPTS -->
+    <script src="data/infinity-part1.js"></script>
+    <script src="data/infinity-part2.js"></script>
+    <script src="data/infinity-part3.js"></script>
+    <script src="data/multiverse-saga.js"></script>
+    <script src="data/multiverse-collection.js"></script>
+    <script src="data/upcoming.js"></script>
+    <script src="data/data.js"></script>
+    <script src="data/achievement.js"></script>
+    <script src="data/app.js"></script>
+
+</body>
+</html>

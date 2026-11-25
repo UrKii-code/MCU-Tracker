@@ -1,0 +1,744 @@
+/* =========================================================
+   MCU TRACKER - MASTER STYLESHEET (CLEANED)
+   ========================================================= */
+
+/* ===== RESET & VARIABLES ===== */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 65px;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background: #050814;
+    color: white;
+    overflow-x: hidden;
+}
+
+:root {
+    --gold: #FFD700;
+    --gold-dark: #B8860B;
+    --navy: #0B1120;
+    --card: #111827;
+    --glass: rgba(20, 25, 40, .72);
+    --border: rgba(255, 255, 255, .08);
+    --shadow: 0 15px 40px rgba(0, 0, 0, .45);
+}
+
+/* ===== SCROLLBAR ===== */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #050814;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--gold-dark);
+    border-radius: 20px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--gold);
+}
+
+/* ===== NAVBAR ===== */
+.navbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 75px;
+    padding: 0 40px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(5, 8, 20, .92);
+    backdrop-filter: blur(15px);
+    z-index: 999;
+    border-bottom: 1px solid rgba(255, 255, 255, .05);
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.logo img {
+    height: 45px;
+}
+
+.logo span {
+    font-family: 'Cinzel', serif;
+    color: var(--gold);
+    font-size: 26px;
+    font-weight: bold;
+}
+
+nav {
+    display: flex;
+    gap: 30px;
+}
+
+nav a {
+    color: white;
+    text-decoration: none;
+    transition: .3s;
+}
+
+nav a:hover {
+    color: var(--gold);
+}
+
+/* ===== HERO ===== */
+#hero {
+    height: 100vh;
+    background: linear-gradient(rgba(0, 0, 0, .70), rgba(0, 0, 0, .80)),
+                url("images/background/mcu-bg.jpg") center/cover;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 30px;
+}
+
+.hero-overlay {
+    max-width: 900px;
+}
+
+.hero-overlay h1 {
+    font-family: 'Cinzel', serif;
+    font-size: 70px;
+    color: var(--gold);
+    margin-bottom: 20px;
+}
+
+.hero-overlay p {
+    font-size: 20px;
+    color: #ddd;
+    line-height: 1.7;
+}
+
+.hero-buttons {
+    margin-top: 35px;
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.hero-buttons button {
+    padding: 15px 30px;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: .3s;
+}
+
+#continueBtn,
+#timelineBtn {
+    background: transparent;
+    color: white;
+    border: 2px solid var(--gold);
+}
+
+#continueBtn:hover,
+#timelineBtn:hover {
+    background: var(--gold);
+    color: black;
+}
+
+/* ===== GENERAL SECTION ===== */
+section {
+    padding: 90px 8%;
+}
+
+.section-title {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.section-title h2 {
+    font-family: 'Cinzel', serif;
+    color: var(--gold);
+    font-size: 42px;
+}
+
+/* ===== COLLECTION STATISTICS & DASHBOARD ===== */
+.statistics-page {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 10px 20px 15px;
+}
+
+.statistics-title {
+    text-align: center;
+    margin-bottom: 12px;
+}
+
+.statistics-title h2 {
+    font-family: 'Cinzel', serif;
+    color: var(--gold);
+    font-size: 36px;
+    font-weight: 700;
+}
+
+.statistics-dashboard {
+    display: grid;
+    grid-template-columns: 1fr 1.7fr;
+    gap: 30px;
+    align-items: center;
+}
+
+.stats-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+}
+
+.stat-card {
+    height: 72px;
+    background: #111827;
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    transition: transform 0.25s ease, border-color 0.25s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-3px);
+    border-color: rgba(255, 215, 0, 0.25);
+}
+
+.stat-card h3 {
+    margin: 0 0 2px;
+    color: var(--gold);
+    font-size: 30px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.stat-card p {
+    margin: 0;
+    color: #e5e7eb;
+    font-size: 13px;
+}
+
+/* ===== PROGRESS SECTION ===== */
+.progress-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.progress-title {
+    margin: 0 0 2px;
+    color: var(--gold);
+    font-size: 22px;
+    font-weight: 700;
+}
+
+.progress-card {
+    width: 100%;
+    background: #111827;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 12px;
+    padding: 18px 22px;
+}
+
+.progress-label {
+    color: #ffffff;
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 17px;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 14px;
+    background: #0d1117; 
+    border: 1px solid rgba(212, 175, 55, 0.2);
+    border-radius: 20px;
+    overflow: hidden;
+    margin: 0 0 10px;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.6);
+}
+
+.progress-fill {
+    height: 100%;
+    width: 0%; 
+    background: linear-gradient(90deg, #b8860b, #ffd700, #ffea79, #ffd700, #b8860b);
+    background-size: 200% 100%;
+    border-radius: 20px;
+    box-shadow: 0 0 12px rgba(255, 215, 0, 0.7), 0 0 4px rgba(255, 215, 0, 0.9) inset;
+    animation: goldGlowPulse 3s linear infinite;
+    transition: width 0.5s ease-in-out;
+}
+
+@keyframes goldGlowPulse {
+    0% {
+        background-position: 200% 0;
+    }
+    100% {
+        background-position: -200% 0;
+    }
+}
+
+#overallProgress {
+    width: 0%;
+    height: 100%;
+    background: var(--gold);
+    border-radius: 20px;
+    transition: width 0.8s ease;
+}
+
+#overallText {
+    color: #e5e7eb;
+    font-size: 13px;
+    margin: 0;
+}
+
+/* ===== SIMPLE MCU TIMELINE ===== */
+.mcu-simple-timeline {
+    position: relative;
+    width: 100%;
+    height: 140px;
+    margin: 15px auto 0;
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+}
+
+.timeline-line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: 6px;
+    background: #C6F000;
+    transform: translateY(-50%);
+    z-index: 1;
+}
+
+.timeline-item {
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.timeline-circle {
+    width: 29px;
+    height: 29px;
+    background: #17B900;
+    border-radius: 50%;
+    box-shadow: 0 0 0 1px rgba(23, 185, 0, 0.15);
+}
+
+.timeline-diamond {
+    width: 38px;
+    height: 38px;
+    background: #064D00;
+    transform: rotate(45deg);
+    border: 1px solid rgba(0, 0, 0, 0.3);
+}
+
+/* Timeline Item Positions */
+.infinity-saga { left: 12.5%; }
+.phase-one { left: 21.3%; }
+.phase-two { left: 28.7%; }
+.phase-three { left: 35.1%; }
+.phase-four { left: 42%; }
+.saga-node-one { left: 50%; }
+.phase-five { left: 60.7%; }
+.phase-six { left: 70.4%; }
+.multiverse-node { left: 87.2%; }
+
+.timeline-label {
+    position: absolute;
+    color: #f1f5f9;
+    font-size: 20px;
+    font-weight: 400;
+    white-space: nowrap;
+}
+
+.timeline-label.top { bottom: 32px; }
+.timeline-label.bottom { top: 35px; }
+
+/* ===== CONTINUE WATCHING ===== */
+.continue-watching-section {
+    width: 100%;
+    max-width: 1000px;
+    margin: 90px auto 40px;
+    padding: 0 20px;
+}
+
+.continue-card, .continue-watching-card {
+    max-height: 180px; /* Reduces the height of the banner */
+    padding: 15px;     /* Reduces internal spacing */
+}
+
+/* ===== TIMELINE CONTROLS (SEARCH & FILTERS) ===== */
+.timeline-controls {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 30px;
+}
+
+.search-section {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
+#searchInput {
+    width: 100%;
+    max-width: 550px;
+    padding: 14px 22px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 30px;
+    font-size: 16px;
+    background: #111827;
+    color: white;
+    outline: none;
+    transition: border-color 0.3s ease;
+}
+
+#searchInput:focus {
+    border-color: var(--gold);
+}
+
+.filter-section {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.filter {
+    padding: 10px 20px;
+    border-radius: 30px;
+    border: none;
+    cursor: pointer;
+    background: #1E293B;
+    color: white;
+    transition: .3s;
+    font-size: 14px;
+}
+
+.filter:hover,
+.filter.active {
+    background: var(--gold);
+    color: black;
+}
+
+/* ===== WATCHLIST GRID & MOVIE CARDS ===== */
+#mcu-timeline {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 30px;
+    padding: 20px 0;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.movie-card {
+    background-color: #121212;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    cursor: pointer;
+}
+
+.movie-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 8px 25px rgba(255, 215, 0, 0.2);
+    border-color: rgba(255, 215, 0, 0.4);
+}
+
+.movie-poster {
+    width: 100%;
+    aspect-ratio: 2 / 3;
+    overflow: hidden;
+    background-color: #1a1a1a;
+}
+
+.movie-poster img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.5s ease;
+}
+
+.movie-card:hover .movie-poster img {
+    transform: scale(1.05);
+}
+
+.movie-info {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex-grow: 1;
+    justify-content: space-between;
+}
+
+.movie-info h3 {
+    font-size: 1.1rem;
+    color: #ffffff;
+    margin: 0;
+    line-height: 1.4;
+}
+
+.movie-info p {
+    font-size: 0.9rem;
+    color: #b0b0b0;
+    margin: 0;
+}
+
+.movie-info span {
+    align-self: flex-start;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    background-color: rgba(255, 215, 0, 0.15);
+    color: var(--gold);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-weight: bold;
+    letter-spacing: 0.5px;
+}
+
+/* ===== WATCH STATUS BUTTON ===== */
+.watch-btn {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: #b0b0b0;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    margin-top: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.watch-btn.watched {
+    background-color: rgba(46, 204, 113, 0.2);
+    color: #2ecc71;
+    border-color: rgba(46, 204, 113, 0.4);
+}
+
+.watch-btn:hover {
+    opacity: 0.9;
+}
+
+/* ===== COMING SOON & ACHIEVEMENTS ===== */
+#comingSoonContainer {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 25px;
+}
+
+#achievementContainer {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 20px;
+}
+
+#achievement-popup-container {
+    position: fixed;
+    top: 30px;
+    left: 30px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    pointer-events: none;
+}
+
+.achievement-popup-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: rgba(15, 23, 42, 0.95);
+    border: 1px solid var(--gold);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.7);
+    border-radius: 14px;
+    padding: 14px 18px;
+    width: 360px;
+    color: #f8fafc;
+    backdrop-filter: blur(10px);
+    pointer-events: auto;
+    opacity: 0;
+    transform: translateY(-20px);
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.achievement-popup-card.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.achievement-popup-card img {
+    width: 50px;
+    height: 50px;
+    object-fit: contain;
+}
+
+.achievement-popup-info h4 {
+    margin: 0 0 3px 0;
+    font-size: 13px;
+    color: var(--gold);
+    font-weight: 700;
+}
+
+.achievement-popup-info .badge-name {
+    margin: 0 0 2px 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #ffffff;
+}
+
+.achievement-popup-info .badge-req {
+    margin: 0;
+    font-size: 11px;
+    color: #94a3b8;
+}
+
+/* ===== MODAL ===== */
+.modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.85);
+    z-index: 9999;
+}
+
+.modal-content {
+    background: #0b1120;
+    width: 90%;
+    max-width: 900px;
+    margin: 50px auto;
+    border-radius: 16px;
+    padding: 30px;
+    color: white;
+    position: relative;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.7);
+    overflow: hidden;
+}
+
+.close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    cursor: pointer;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: 0.3s;
+    font-size: 0;
+}
+
+.close::before,
+.close::after {
+    content: '';
+    position: absolute;
+    width: 12px;
+    height: 2px;
+    background-color: #fff;
+}
+
+.close::before { transform: rotate(45deg); }
+.close::after { transform: rotate(-45deg); }
+
+.close:hover {
+    background: var(--gold);
+    border-color: var(--gold);
+}
+
+.close:hover::before,
+.close:hover::after {
+    background-color: #000;
+}
+
+/* ===== FOOTER ===== */
+footer {
+    padding: 40px;
+    text-align: center;
+    color: #888;
+}
+
+/* ===== RESPONSIVE MEDIA QUERIES ===== */
+@media(max-width: 900px) {
+    .navbar {
+        flex-direction: column;
+        height: auto;
+        padding: 20px;
+    }
+
+    nav {
+        flex-wrap: wrap;
+        justify-content: center;
+        margin-top: 15px;
+    }
+
+    .hero-overlay h1 {
+        font-size: 48px;
+    }
+
+    .statistics-dashboard {
+        grid-template-columns: 1fr;
+    }
+
+    .progress-wrapper {
+        width: 100%;
+    }
+
+    .mcu-simple-timeline {
+        overflow-x: auto;
+        min-width: 850px;
+    }
+}
+
+@media(max-width: 600px) {
+    .hero-overlay h1 { font-size: 36px; }
+    .hero-overlay p { font-size: 16px; }
+    .statistics-title h2 { font-size: 30px; }
+    .stats-cards-grid { gap: 12px; }
+    .stat-card { height: 85px; }
+    .stat-card h3 { font-size: 32px; }
+    .progress-card { padding: 22px; }
+}
